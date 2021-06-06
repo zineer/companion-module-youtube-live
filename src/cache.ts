@@ -74,6 +74,12 @@ export interface Broadcast {
 
 	/** Whether the YouTube Studio monitor stream is enabled or not. */
 	MonitorStreamEnabled: boolean;
+
+	/** The scheduled start time on the broadcast */
+	ScheduledStartTime: Date;
+
+	/** The actual start time on the broadcast */
+	ActualStartTime: Date | null;
 }
 
 /**

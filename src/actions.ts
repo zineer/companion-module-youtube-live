@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/camelcase */
-import { CompanionActions, CompanionActionEvent, DropdownChoice } from '../../../instance_skel_types';
-import { BroadcastMap, BroadcastID, StateMemory } from './cache';
+import { CompanionActionEvent, CompanionActions, DropdownChoice } from '../../../instance_skel_types';
+import { BroadcastID, BroadcastLifecycle, BroadcastMap, StateMemory } from './cache';
 
 /**
  * Interface for implementing module actions
@@ -70,7 +70,7 @@ export function listActions(broadcasts: BroadcastMap): CompanionActions {
 					type: 'dropdown',
 					label: 'Broadcast:',
 					id: 'broadcast_id',
-					choices: broadcastEntries,
+					choices: [{id: 'live', 'label': 'Current Live (Oldest if multiple live)'}, ...broadcastEntries],
 					default: defaultBroadcast,
 				},
 			],
@@ -110,8 +110,19 @@ export async function handleAction(
 	memory: StateMemory,
 	handler: ActionHandler
 ): Promise<void> {
-	if (event.options.broadcast_id) {
-		if (!(event.options.broadcast_id in memory.Broadcasts)) {
+	let broaddcast_id = event.options && event.options.broadcast_id ? event.options.broadcast_id as BroadcastID : null;
+	if (broaddcast_id) {
+		if (event.options.broadcast_id == 'live' && event.action == 'stop_broadcast') {
+			// find all live broadcasts
+			const liveBroadcastIds = Object.keys(memory.Broadcasts).filter(id => memory.Broadcasts[id].Status == BroadcastLifecycle.Live);
+			// find the oldest one
+			broaddcast_id = liveBroadcastIds.reduce((acc, cur) => {
+				// actual time won't be null here since we're filtering on known live broadcasts
+				return memory.Broadcasts[acc].ActualStartTime! <  memory.Broadcasts[cur].ActualStartTime! ? acc : cur;
+			});
+		}
+
+		if (!(broaddcast_id in memory.Broadcasts)) {
 			throw new Error('Action has unknown broadcast ID');
 		}
 	} else {
@@ -121,13 +132,13 @@ export async function handleAction(
 	}
 
 	if (event.action == 'init_broadcast') {
-		return handler.startBroadcastTest(event.options.broadcast_id as BroadcastID);
+		return handler.startBroadcastTest(broaddcast_id as BroadcastID);
 	} else if (event.action == 'start_broadcast') {
-		return handler.makeBroadcastLive(event.options.broadcast_id as BroadcastID);
+		return handler.makeBroadcastLive(broaddcast_id as BroadcastID);
 	} else if (event.action == 'stop_broadcast') {
-		return handler.finishBroadcast(event.options.broadcast_id as BroadcastID);
+		return handler.finishBroadcast(broaddcast_id as BroadcastID);
 	} else if (event.action == 'toggle_broadcast') {
-		return handler.toggleBroadcast(event.options.broadcast_id as BroadcastID);
+		return handler.toggleBroadcast(broaddcast_id as BroadcastID);
 	} else if (event.action == 'refresh_status') {
 		return handler.reloadEverything();
 	} else if (event.action == 'refresh_feedbacks') {

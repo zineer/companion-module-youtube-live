@@ -86,7 +86,6 @@ export class YoutubeConnector implements YoutubeAPI {
 		});
 
 		const mapping: BroadcastMap = {};
-
 		response.data.items?.forEach((item) => {
 			const id = item.id!;
 			const status = item.status!.lifeCycleStatus! as BroadcastLifecycle;
@@ -98,6 +97,8 @@ export class YoutubeConnector implements YoutubeAPI {
 				Status: status,
 				BoundStreamId: item.contentDetails!.boundStreamId || null,
 				MonitorStreamEnabled: monitor,
+				ScheduledStartTime: new Date(item.snippet!.scheduledStartTime!),
+				ActualStartTime: item.snippet!.actualStartTime ? new Date(item.snippet!.actualStartTime) : null,
 			};
 		});
 
@@ -109,7 +110,7 @@ export class YoutubeConnector implements YoutubeAPI {
 	 */
 	async refreshBroadcastStatus1(broadcast: Broadcast): Promise<Broadcast> {
 		const response = await this.ApiClient.liveBroadcasts.list({
-			part: 'status',
+			part: 'snippet, status',
 			id: broadcast.Id,
 			maxResults: 1,
 		});
@@ -126,6 +127,8 @@ export class YoutubeConnector implements YoutubeAPI {
 			Status: status,
 			BoundStreamId: broadcast.BoundStreamId,
 			MonitorStreamEnabled: broadcast.MonitorStreamEnabled,
+			ScheduledStartTime: broadcast.ScheduledStartTime,
+			ActualStartTime: item.snippet!.actualStartTime ? new Date(item.snippet!.actualStartTime) : null,
 		};
 	}
 
@@ -134,7 +137,7 @@ export class YoutubeConnector implements YoutubeAPI {
 	 */
 	async refreshBroadcastStatus(current: BroadcastMap): Promise<BroadcastMap> {
 		const response = await this.ApiClient.liveBroadcasts.list({
-			part: 'status',
+			part: 'snippet, status',
 			id: Object.keys(current).join(','),
 			maxResults: this.MaxBroadcasts,
 		});
@@ -151,6 +154,8 @@ export class YoutubeConnector implements YoutubeAPI {
 				Status: status,
 				BoundStreamId: current[id].BoundStreamId,
 				MonitorStreamEnabled: current[id].MonitorStreamEnabled,
+				ScheduledStartTime: current[id].ScheduledStartTime,
+				ActualStartTime: item.snippet!.actualStartTime ? new Date(item.snippet!.actualStartTime) : null,
 			};
 		});
 
