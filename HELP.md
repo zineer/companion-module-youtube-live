@@ -1,11 +1,11 @@
-## YouTube Live
+# YouTube Live
 
 This module will allow you to control YouTube live events/broadcasts.
 
 The module is only able to manipulate predefined broadcasts, it is currently not capable of creating them.
 So all broadcasts to be controlled by the module have to be created in the YouTube Studio first.
 
-### Available actions
+## Available actions
 
 - **Start broadcast test** - this action initializes a YouTube broadcast. You'll need to explicitly use this only if you want
   to launch the so called "monitor stream" of a broadcast. The same goal can be achieved by visiting the Live Control Room
@@ -20,6 +20,31 @@ So all broadcasts to be controlled by the module have to be created in the YouTu
   used to make broadcasts created after Companion startup appear in the Companion UI.
 
 [ytapi]: https://developers.google.com/youtube/v3/live/docs/liveBroadcasts/transition
+
+
+### Action configuration
+
+When creating buttons for either starting or stopping a broadcast,
+you should pick the broadcast to work with using the provided dropdown menu.
+It should contain all broadcasts present on the channel.
+
+#### Single broadcast options
+
+If you are primarily handling single broadcasts and do not want to reconfigure the selected broadcast for each event
+you can configure the actions by selecting special broadcasts. The way the broadcast that is chosen for each of those
+actions is described below:
+
+| Action | Option | Broadcast Chosen |
+| ------ | ------ | ----------- |
+| Start broadcast test | Next Scheduled | The broadcast in the `Ready` state with the oldest `Scheduled Start Time` |
+| Go live | Oldest in Test or Next Scheduled | 1. First checks for broadcasts in the `Testing` state and if any are found it will use the one with the oldest `Actual Start Time` |
+| | | 2. If no `Testing` broadcasts are found, it will use the broadcast in the `Ready` state with the oldest `Scheduled Start Time` |
+| Finish broadcast | Current Live (Oldest if multiple live) | The broadcast in the `Live` state with the oldest `Actual Start Time` |
+| Advance broadcast to next phase | Current Stream | This will check the following until a matching broadcast is found: |
+| | | 1. The broadcast in the `Live` state with the oldest `Actual Start Time` will be finished |
+| | | 2. The broadcast in the `Testing` state with the oldest `Actual Start Time` will be moved to `Live` |
+| | | 3. The broadcast in the `Ready` state with the oldest `Scheduled Start Time` will be moved to `Testing` |
+
 
 ### Configuration
 
@@ -52,12 +77,6 @@ This is done via the Google API console:
    to authorize module for accessing your YouTube channel. Proceed with the account with which you want the module to interact.
 
 When all above is done, the module is ready for work.
-
-#### Action configuration
-
-When creating buttons for either starting or stopping a broadcast,
-you should pick the broadcast to work with using the provided dropdown menu.
-It should contain all broadcasts present on the channel.
 
 ### Thanks
 

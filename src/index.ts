@@ -116,7 +116,7 @@ class YoutubeInstance extends InstanceSkel<YoutubeConfig> implements ModuleBase,
 	action(action: CompanionActionEvent): void {
 		if (!this.Core) return;
 
-		handleAction(action, this.Core.Cache, this.Core).catch((err: Error) => {
+		handleAction(action, this.Core.Cache, this.Core, this).catch((err: Error) => {
 			this.log('warn', 'Action failed: ' + err);
 		});
 	}

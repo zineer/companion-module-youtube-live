@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/camelcase */
 import { CompanionActionEvent, CompanionActions, DropdownChoice } from '../../../instance_skel_types';
 import { BroadcastID, BroadcastLifecycle, BroadcastMap, StateMemory } from './cache';
+import { Core } from './core';
+import YoutubeInstance = require('./index');
 
 /**
  * Interface for implementing module actions
@@ -36,8 +38,6 @@ export function listActions(broadcasts: BroadcastMap): CompanionActions {
 		}
 	);
 
-	const defaultBroadcast = broadcastEntries.length == 0 ? '' : broadcastEntries[0].id;
-
 	return {
 		init_broadcast: {
 			label: 'Start broadcast test',
@@ -46,8 +46,8 @@ export function listActions(broadcasts: BroadcastMap): CompanionActions {
 					type: 'dropdown',
 					label: 'Broadcast:',
 					id: 'broadcast_id',
-					choices: broadcastEntries,
-					default: defaultBroadcast,
+					choices: [{id: 'current', 'label': 'Next Scheduled'}, ...broadcastEntries],
+					default: 'current',
 				},
 			],
 		},
@@ -58,8 +58,8 @@ export function listActions(broadcasts: BroadcastMap): CompanionActions {
 					type: 'dropdown',
 					label: 'Broadcast:',
 					id: 'broadcast_id',
-					choices: broadcastEntries,
-					default: defaultBroadcast,
+					choices: [{id: 'current', 'label': 'Oldest in Test or Next Scheduled'}, ...broadcastEntries],
+					default: 'current',
 				},
 			],
 		},
@@ -70,8 +70,8 @@ export function listActions(broadcasts: BroadcastMap): CompanionActions {
 					type: 'dropdown',
 					label: 'Broadcast:',
 					id: 'broadcast_id',
-					choices: [{id: 'live', 'label': 'Current Live (Oldest if multiple live)'}, ...broadcastEntries],
-					default: defaultBroadcast,
+					choices: [{id: 'current', 'label': 'Current Live (Oldest if multiple live)'}, ...broadcastEntries],
+					default: 'current',
 				},
 			],
 		},
@@ -82,8 +82,8 @@ export function listActions(broadcasts: BroadcastMap): CompanionActions {
 					type: 'dropdown',
 					label: 'Broadcast:',
 					id: 'broadcast_id',
-					choices: broadcastEntries,
-					default: defaultBroadcast,
+					choices: [{id: 'current', 'label': 'Current Stream (see docs for details)'}, ...broadcastEntries],
+					default: 'current',
 				},
 			],
 		},
@@ -103,26 +103,43 @@ export function listActions(broadcasts: BroadcastMap): CompanionActions {
  * @param event Companion event metadata
  * @param memory Known broadcasts and streams
  * @param handler Implementation of actions
- * @param log Logging function
+ * @param instance
  */
 export async function handleAction(
 	event: CompanionActionEvent,
 	memory: StateMemory,
-	handler: ActionHandler
+	handler: Core,
+	instance: YoutubeInstance
 ): Promise<void> {
-	let broaddcast_id = event.options && event.options.broadcast_id ? event.options.broadcast_id as BroadcastID : null;
-	if (broaddcast_id) {
-		if (event.options.broadcast_id == 'live' && event.action == 'stop_broadcast') {
-			// find all live broadcasts
-			const liveBroadcastIds = Object.keys(memory.Broadcasts).filter(id => memory.Broadcasts[id].Status == BroadcastLifecycle.Live);
-			// find the oldest one
-			broaddcast_id = liveBroadcastIds.reduce((acc, cur) => {
-				// actual time won't be null here since we're filtering on known live broadcasts
-				return memory.Broadcasts[acc].ActualStartTime! <  memory.Broadcasts[cur].ActualStartTime! ? acc : cur;
-			});
+	let broadcast_id = event.options && event.options.broadcast_id ? event.options.broadcast_id as BroadcastID : null;
+	if (broadcast_id) {
+		if (event.options.broadcast_id == 'current') {
+			switch (event.action) {
+				case 'init_broadcast':
+					broadcast_id = handler.filterBroadcasts(BroadcastLifecycle.Ready, 'ScheduledStartTime');
+					break;
+				case 'start_broadcast':
+					broadcast_id = handler.filterBroadcasts(BroadcastLifecycle.Testing, 'ActualStartTime');
+					if (!broadcast_id) {
+						broadcast_id = handler.filterBroadcasts(BroadcastLifecycle.Ready, 'ScheduledStartTime');
+					}
+					break;
+				case 'stop_broadcast':
+					broadcast_id = handler.filterBroadcasts(BroadcastLifecycle.Live, 'ActualStartTime');
+					break;
+				case 'toggle_broadcast':
+					broadcast_id = handler.filterBroadcasts(BroadcastLifecycle.Live, 'ActualStartTime');
+					if (!broadcast_id) {
+						broadcast_id = handler.filterBroadcasts(BroadcastLifecycle.Testing, 'ActualStartTime');
+						if (!broadcast_id) {
+							broadcast_id = handler.filterBroadcasts(BroadcastLifecycle.Ready, 'ScheduledStartTime');
+						}
+					}
+			}
+			instance.log('debug', 'Using broadcast_id ' + broadcast_id + 'for ' + event.action);
 		}
 
-		if (!(broaddcast_id in memory.Broadcasts)) {
+		if (broadcast_id === null || !(broadcast_id in memory.Broadcasts)) {
 			throw new Error('Action has unknown broadcast ID');
 		}
 	} else {
@@ -132,13 +149,13 @@ export async function handleAction(
 	}
 
 	if (event.action == 'init_broadcast') {
-		return handler.startBroadcastTest(broaddcast_id as BroadcastID);
+		return handler.startBroadcastTest(broadcast_id as BroadcastID);
 	} else if (event.action == 'start_broadcast') {
-		return handler.makeBroadcastLive(broaddcast_id as BroadcastID);
+		return handler.makeBroadcastLive(broadcast_id as BroadcastID);
 	} else if (event.action == 'stop_broadcast') {
-		return handler.finishBroadcast(broaddcast_id as BroadcastID);
+		return handler.finishBroadcast(broadcast_id as BroadcastID);
 	} else if (event.action == 'toggle_broadcast') {
-		return handler.toggleBroadcast(broaddcast_id as BroadcastID);
+		return handler.toggleBroadcast(broadcast_id as BroadcastID);
 	} else if (event.action == 'refresh_status') {
 		return handler.reloadEverything();
 	} else if (event.action == 'refresh_feedbacks') {

@@ -87,6 +87,12 @@ export class YoutubeConnector implements YoutubeAPI {
 
 		const mapping: BroadcastMap = {};
 		response.data.items?.forEach((item) => {
+			// broadcasts should have a ScheduledStartTime. Seemingly some really old broadcasts do not,
+			// but they don't show in Youtube either so skip here
+			if (!item.snippet!.hasOwnProperty('scheduledStartTime')) {
+				return;
+			}
+
 			const id = item.id!;
 			const status = item.status!.lifeCycleStatus! as BroadcastLifecycle;
 			const monitor = item.contentDetails!.monitorStream!.enableMonitorStream ?? true;
@@ -101,7 +107,6 @@ export class YoutubeConnector implements YoutubeAPI {
 				ActualStartTime: item.snippet!.actualStartTime ? new Date(item.snippet!.actualStartTime) : null,
 			};
 		});
-
 		return mapping;
 	}
 

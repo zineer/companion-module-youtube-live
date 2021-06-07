@@ -261,6 +261,21 @@ export class Core implements ActionHandler {
 		}
 		return this.refresher();
 	}
+
+	/**
+	 * Find the oldest broadcast in a particular state
+	 * @param status The BroadcastLifecycle to filter on
+	 * @param propery The Broadcast property to sort on, finding the oldest
+	 */
+	filterBroadcasts(status: BroadcastLifecycle, propery: string): BroadcastID | null {
+		const broadcastIds = Object.keys(this.Cache.Broadcasts).filter(id => this.Cache.Broadcasts[id].Status == status);
+		if (broadcastIds.length) {
+			return broadcastIds.reduce((acc, cur) => {
+				return this.Cache.Broadcasts[acc][propery]! < this.Cache.Broadcasts[cur][propery]! ? acc : cur;
+			});
+		}
+		return null;
+	}
 }
 
 /**
